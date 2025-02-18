@@ -38,6 +38,6 @@ def image_process_flow():
     })
 
 ## make sure you have the right path to your model file.
-model = YOLO("model.pt")
+model = YOLO("best.pt")
 ## make sure to have those settings for your flask-app
 app.run(port = 8080,host='0.0.0.0')
