@@ -1,45 +1,43 @@
+import torch
 import io
-import json
-
-from torchvision import models
-import torchvision.transforms as transforms
+from flask import Flask, request, Response, jsonify
+from flask_cors import CORS
+import cv2
+import numpy as np
+import base64
+import io
 from PIL import Image
-from flask import Flask, jsonify, request
-
+from io import BytesIO
+from ultralytics import YOLO
+from predict_utils import detect
 
 app = Flask(__name__)
-imagenet_class_index = json.load(open('imagenet_class_index.json'))
-model = models.densenet121(pretrained=True)
-model.eval()
 
+CORS(app)
 
-def transform_image(image_bytes):
-    my_transforms = transforms.Compose([transforms.Resize(255),
-                                        transforms.CenterCrop(224),
-                                        transforms.ToTensor(),
-                                        transforms.Normalize(
-                                            [0.485, 0.456, 0.406],
-                                            [0.229, 0.224, 0.225])])
-    image = Image.open(io.BytesIO(image_bytes))
-    return my_transforms(image).unsqueeze(0)
+# Health check route
+@app.route("/isalive")
+def is_alive():
+    print("/isalive request")
+    status_code = Response(status=200)
+    return status_code
 
-
-def get_prediction(image_bytes):
-    tensor = transform_image(image_bytes=image_bytes)
-    outputs = model.forward(tensor)
-    _, y_hat = outputs.max(1)
-    predicted_idx = str(y_hat.item())
-    return imagenet_class_index[predicted_idx]
-
-
+# image detection route
 @app.route('/predict', methods=['POST'])
-def predict():
-    if request.method == 'POST':
-        file = request.files['file']
-        img_bytes = file.read()
-        class_id, class_name = get_prediction(image_bytes=img_bytes)
-        return jsonify({'class_id': class_id, 'class_name': class_name})
+def image_process_flow():
+    base64_string = request.json['instances'][0]['image'][0]
+    print(base64_string)
+    img = Image.open(BytesIO(base64.b64decode(base64_string)))   ### decode back to image
+    img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)  ## make it a cv2 object
+    inputs = [img]
+    results = model(inputs)  # List of Results objects
+    labels,coordinates,confidence = detect(results)
+    ## output format is important to succefully deploy it on gcp vertex ai endpoint
+    return jsonify({
+        "predictions": [{'coordinates':coordinates,'label':labels,'confidence':confidence}]
+    })
 
-
-if __name__ == '__main__':
-    app.run()
+## make sure you have the right path to your model file.
+model = YOLO("model.pt")
+## make sure to have those settings for your flask-app
+app.run(port = 8080,host='0.0.0.0')
