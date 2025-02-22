@@ -53,6 +53,9 @@ def image_process_flow():
         except (binascii.Error, IOError):
             return jsonify({"error": "Invalid Base64 image data"}), 400
 
+
+        # Pob, do stuff here…
+
         # Convert to OpenCV format
         if img.mode != "RGB":
             img = img.convert("RGB")
