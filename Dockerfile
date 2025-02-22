@@ -1,9 +1,20 @@
-FROM pytorch/pytorch
+# 🏗️ Base Image: CPU-only version of PyTorch
+FROM pytorch/pytorch:latest
+
+# Set working directory
 WORKDIR /workspace
-ADD . /workspace
-RUN pip install -r requirements.txt
-RUN apt-get update
-RUN apt-get install ffmpeg libsm6 libxext6  -y
-CMD [ "python" , "/workspace/app.py" ]
-RUN chown -R 8080:8080 /workspace
-ENV HOME=/workspace
+
+# Copy project files
+COPY . /workspace
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install missing system dependencies
+RUN apt-get update && apt-get install -y ffmpeg libsm6 libxext6
+
+# Make sure Flask listens on all interfaces
+ENV PYTHONUNBUFFERED=1
+
+# Run the Flask app
+CMD ["python", "app.py"]
